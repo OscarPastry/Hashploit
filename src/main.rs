@@ -21,7 +21,7 @@ struct Args{
 struct Wordlist {
     words: Vec<String>, //original words ["cat", "dog", "hello"]
     flat: Vec<u8>, //all words as one big byte array [c,a,t,d,o,g,h,e,l,l,o]
-    offset: Vec<i32>, //where each word starts
+    offsets: Vec<i32>, //where each word starts
     lengths: Vec<i32>, // how long is each word
 }
 
@@ -44,7 +44,7 @@ fn load_wordlist(path: &str) -> Wordlist {
     for word in &words {
         let bytes = word.as_bytes(); // converts &str -> & u8
         offsets.push(offset); // stores the current postion of word in flat vector
-        lengths.push(byte.len() as i32); // stores the length as a i32
+        lengths.push(bytes.len() as i32); // stores the length as a i32
         flat.extend_from_slice(bytes); // Appends all bytes of the current word to the flat
         offset += bytes.len() as i32; // Updates the offset for the next word
     }
@@ -82,14 +82,14 @@ fn crack(target_hex: &str, wordlist_path: &str) -> ocl :: Result <()>{//returns 
     let context = Context::builder()
         .platform(platform)
         .devices(device)
-        .build()? // You can’t share memory buffers or kernels between different contexts. 
+        .build()?; // You can’t share memory buffers or kernels between different contexts. 
                   // Everything inside this context belongs to that specific hardware setup you identified in the previous steps.
     let queue = Queue::new(&context, device, None)?; // [None] refer to Queue Properties 
     
     //Load Kernel source
     let kernel_src = fs::read_to_string("kernel/crack.cl")
         .expect("Failed to read crack.cl");
-    let program = program::builder()
+    let program = Program::builder()
         .src(kernel_src)
         .build(&context)?;
 
@@ -106,27 +106,27 @@ fn crack(target_hex: &str, wordlist_path: &str) -> ocl :: Result <()>{//returns 
         .flags(flags::MEM_READ_ONLY | flags::MEM_COPY_HOST_PTR)
         .len(wl.offsets.len())
         .copy_host_slice(&wl.offsets)
-        .build()?
+        .build()?;
 
     let lengths_buf = Buffer::<i32>::builder()
         .queue(queue.clone())
         .flags(flags::MEM_READ_ONLY | flags::MEM_COPY_HOST_PTR)
         .len(wl.lengths.len())
         .copy_host_slice(&wl.lengths)
-        .build()?
+        .build()?;
     let target_buf = Buffer::<u8>::builder()
         .queue(queue.clone())
         .flags(flags::MEM_READ_ONLY | flags::MEM_COPY_HOST_PTR)
         .len(target_bytes.len())
-        .copy_host_slice(&wl.target_bytes)
-        .build()?
+        .copy_host_slice(&target_bytes)
+        .build()?;
     
     let result_buf = Buffer::<i32>::builder()
     .queue(queue.clone())
         .flags(flags::MEM_READ_ONLY | flags::MEM_COPY_HOST_PTR)
         .len(1)
         .copy_host_slice(&[-1i32])
-        .build()?
+        .build()?;
     //build and launch the kernel
     
     let kernel = Kernel::builder()
@@ -147,13 +147,13 @@ fn crack(target_hex: &str, wordlist_path: &str) -> ocl :: Result <()>{//returns 
     unsafe { kernel.enq()?; } 
     queue.finish()?;
 
-    let elaspsed = start.elaspsed();
+    let elaspsed = start.elapsed();
 
     let mut result = vec![-1i32];
     result_buf.read(&mut result).enq()?;
 
-    let speed = num_words as f32 / elaspsed.as_secs_f64()/1_000_000.0;
-    println!("[*] speed: {:.2}MH/s | Time: {:.2}",speed,elaspsed);
+    let speed = num_words as f32 / elaspsed.as_secs_f32()/1_000_000.0;
+    println!("[*] speed: {:.2}MH/s | Time: {:.2?}",speed,elaspsed);
 
     if result[0] != -1{
         println!("\n[*] CRACKED: {}", wl.words[result[0] as usize]);
@@ -161,7 +161,7 @@ fn crack(target_hex: &str, wordlist_path: &str) -> ocl :: Result <()>{//returns 
         println!("\n[-] NOT FOUND in wordlist");
     }
 
-    ok(())
+    Ok(())
 }
 
 fn main(){

@@ -87,7 +87,7 @@ fn crack(target_hex: &str, wordlist_path: &str) -> ocl :: Result <()>{//returns 
     let queue = Queue::new(&context, device, None)?; // [None] refer to Queue Properties 
     
     //Load Kernel source
-    let kernel_src = fs::read_to_string("kernel/crack.cl")
+    let kernel_src = fs::read_to_string("kernels/crack.cl")
         .expect("Failed to read crack.cl");
     let program = Program::builder()
         .src(kernel_src)

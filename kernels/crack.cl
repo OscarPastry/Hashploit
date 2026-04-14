@@ -13,7 +13,7 @@
 #define HH(a,b,c,d,m,s,t) a = b + ROTATE(a + H(b,c,d) + m + t, s)
 #define II(a,b,c,d,m,s,t) a = b + ROTATE(a + I(b,c,d) + m + t, s)
 
-void md5(const uchar* msg, uint len, uchar* digest) {
+void md5(__global const uchar* msg, uint len, uchar* digest) {
     uint m[16] = {0};
     
     // Copy message into block
